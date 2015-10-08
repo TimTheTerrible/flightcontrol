@@ -5,15 +5,17 @@
 #include <Adafruit_BMP085_U.h>
 #include <Adafruit_L3GD20_U.h>
 #include <Adafruit_10DOF.h>
-#include <Adafruit_SoftServo.h>  // SoftwareServo (works on non PWM pins)
+#include <Adafruit_SoftServo.h>
 
-// We demonstrate two servos!
-#define SERVO1PIN  9  // Servo control line (orange) on Trinket Pin #0
-#define SERVO2PIN 10  // Servo control line (orange) on Trinket Pin #1
+#define SERVO_PITCH0_PIN  9
+#define SERVO_PITCH1_PIN 10
+#define SERVO_ROLL0_PIN  11
+#define SERVO_ROLL1_PIN   6
 
-#define POTPIN   1   // Potentiometer sweep (center) on Trinket Pin #2 (Analog 1)
-
-Adafruit_SoftServo myServo1, myServo2;  //create TWO servo objects
+Adafruit_SoftServo servoPitch0;
+Adafruit_SoftServo servoPitch1;
+Adafruit_SoftServo servoRoll0;
+Adafruit_SoftServo servoRoll1;
    
 /* Assign a unique ID to the sensors */
 Adafruit_10DOF                dof   = Adafruit_10DOF();
@@ -25,11 +27,6 @@ Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 /* Update this with the correct SLP for accurate altitude measurements */
 float seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
 
-/**************************************************************************/
-/*!
-    @brief  Initialises all the sensors used by this example
-*/
-/**************************************************************************/
 void initSensors()
 {
   /* Enable gyro auto-ranging */
@@ -61,11 +58,21 @@ void initSensors()
   }
 }
 
-/**************************************************************************/
-/*!
+void initServos() {
+  // Set up the interrupt that will refresh the servo for us automagically
+  OCR0A = 0xAF;
+  TIMSK0 |= _BV(OCIE0A);
+  
+  servoPitch0.attach(SERVO_PITCH0_PIN);
+  servoPitch0.write(90);
+  servoPitch1.attach(SERVO_PITCH1_PIN);
+  servoPitch1.write(90);
+  servoRoll0.attach(SERVO_ROLL0_PIN);
+  servoRoll0.write(90);
+  servoRoll1.attach(SERVO_ROLL1_PIN);
+  servoRoll1.write(90);
+}
 
-*/
-/**************************************************************************/
 void setup(void)
 {
   Serial.begin(9600);
@@ -74,14 +81,9 @@ void setup(void)
   /* Initialise the sensors */
   initSensors();
 
-  servo_setup();
+  initServos();
 }
 
-/**************************************************************************/
-/*!
-    @brief  Constantly check the roll/pitch/heading/altitude/temperature
-*/
-/**************************************************************************/
 void loop(void)
 {
   sensors_event_t gyro_event;
@@ -90,85 +92,60 @@ void loop(void)
   sensors_event_t bmp_event;
   sensors_vec_t   orientation;
     
-  if ( millis() % 1000 < 10 ) {
-    gyro.getEvent(&gyro_event);
+  gyro.getEvent(&gyro_event);
+  accel.getEvent(&accel_event);
+  mag.getEvent(&mag_event);
+  bmp.getEvent(&bmp_event);
   
+  dof.accelGetOrientation(&accel_event, &orientation);
+  dof.magGetOrientation(SENSOR_AXIS_Z, &mag_event, &orientation);
+  float temperature;
+  bmp.getTemperature(&temperature);
+
+  long pitch0 = map(orientation.pitch, -45,45,0,179);
+  long pitch1 = map(orientation.pitch, 45,-45,0,179);
+  long roll0 = map(orientation.roll, -45,45,0,179);
+  long roll1 = map(orientation.roll, 45,-45,0,179);
+
+  servoPitch0.write(pitch0);
+  servoPitch1.write(pitch1);
+  servoRoll0.write(roll0);
+  servoRoll1.write(roll1);
+
+  if ( millis() % 1000 < 100 ) {
+  
+    Serial.print("pitch0 = "); Serial.println(pitch0);
+    Serial.print("pitch1 = "); Serial.println(pitch1);
+    Serial.print("roll0 = "); Serial.println(roll0);
+    Serial.print("roll1 = "); Serial.println(roll1);
+    
     /* Display the results (speed is measured in rad/s) */
     Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
     Serial.print("Y: "); Serial.print(gyro_event.gyro.y); Serial.print("  ");
     Serial.print("Z: "); Serial.print(gyro_event.gyro.z); Serial.print("  ");
     Serial.println("rad/s ");
     
-    /* Calculate pitch and roll from the raw accelerometer data */
-    accel.getEvent(&accel_event);
-    if (dof.accelGetOrientation(&accel_event, &orientation))
-    {
-      /* 'orientation' should have valid .roll and .pitch fields */
-      Serial.print(F("Roll: "));
-      Serial.print(orientation.roll);
-      Serial.print(F("; "));
-      Serial.print(F("Pitch: "));
-      Serial.print(orientation.pitch);
-      Serial.print(F("; "));
-    }
-    
-    /* Calculate the heading using the magnetometer */
-    mag.getEvent(&mag_event);
-    if (dof.magGetOrientation(SENSOR_AXIS_Z, &mag_event, &orientation))
-    {
-      /* 'orientation' should have valid .heading data now */
-      Serial.print(F("Heading: "));
-      Serial.print(orientation.heading);
-      Serial.print(F("; "));
-    }
-  
-    /* Calculate the altitude using the barometric pressure sensor */
-    bmp.getEvent(&bmp_event);
-    if (bmp_event.pressure)
-    {
-      /* Get ambient temperature in C */
-      float temperature;
-      bmp.getTemperature(&temperature);
-      /* Convert atmospheric pressure, SLP and temp to altitude    */
-      Serial.print(F("Alt: "));
-      Serial.print(bmp.pressureToAltitude(seaLevelPressure,
-                                          bmp_event.pressure,
-                                          temperature)); 
-      Serial.print(F(" m; "));
-      /* Display the temperature */
-      Serial.print(F("Temp: "));
-      Serial.print(temperature);
-      Serial.print(F(" C"));
-    }
-    
+    Serial.print(F("Roll: "));
+    Serial.print(orientation.roll);
+    Serial.print(F("; "));
+    Serial.print(F("Pitch: "));
+    Serial.print(orientation.pitch);
+    Serial.print(F("; "));
+    Serial.print(F("Heading: "));
+    Serial.print(orientation.heading);
+    Serial.print(F("; "));
+
+    Serial.print(F("Alt: "));
+    Serial.print(bmp.pressureToAltitude(seaLevelPressure,
+                                        bmp_event.pressure,
+                                        temperature)); 
+    Serial.print(F(" m; "));
+    /* Display the temperature */
+    Serial.print(F("Temp: "));
+    Serial.print(temperature);
+    Serial.print(F(" C"));
     Serial.println(F(""));
   }
-  //delay(1000);
-  
-  servo_loop();
-}
-
-void servo_setup() {
-  // Set up the interrupt that will refresh the servo for us automagically
-  OCR0A = 0xAF;            // any number is OK
-  TIMSK0 |= _BV(OCIE0A);    // Turn on the compare interrupt (below!)
-  
-  myServo1.attach(SERVO1PIN);   // Attach the servo to pin 0 on Trinket
-  myServo1.write(90);           // Tell servo to go to position per quirk
-  myServo2.attach(SERVO2PIN);   // Attach the servo to pin 1 on Trinket
-  myServo2.write(90);           // Tell servo to go to position per quirk
-  delay(15);                    // Wait 15ms for the servo to reach the position
-}
-
-void servo_loop()  {
-  int potValue;  // variable to read potentiometer
-  int servoPos;  // variable to convert voltage on pot to servo position
-  potValue=analogRead(POTPIN);                // Read voltage on potentiometer
-  servoPos = map(potValue, 0, 1023, 0, 179);  // scale it to use it with the servo (value between 0 and 180) 
-  myServo1.write(servoPos);                    // tell servo to go to position
-  myServo2.write(servoPos);                    // tell servo to go to position
-
-  delay(15);                              // waits 15ms for the servo to reach the position
 }
 
 // We'll take advantage of the built in millis() timer that goes off
@@ -182,7 +159,10 @@ SIGNAL(TIMER0_COMPA_vect) {
   // every 20 milliseconds, refresh the servos!
   if (counter >= 20) {
     counter = 0;
-    myServo1.refresh();
-    myServo2.refresh();
+
+    servoPitch0.refresh();
+    servoPitch0.refresh();
+    servoRoll0.refresh();
+    servoRoll1.refresh();
   }
 }
