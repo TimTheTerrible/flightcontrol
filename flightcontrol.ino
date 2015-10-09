@@ -16,10 +16,18 @@
 #include <Adafruit_10DOF.h>
 #include <Servo.h>
 
-#define SERVO_PITCH0_PIN  3
-#define SERVO_PITCH1_PIN  4
-#define SERVO_ROLL0_PIN   5
-#define SERVO_ROLL1_PIN   6
+#define SERVO_PITCH0_PIN   3
+#define SERVO_PITCH1_PIN   4
+#define SERVO_ROLL0_PIN    5
+#define SERVO_ROLL1_PIN    6
+
+#define SERVO_MIN_PITCH  -120
+#define SERVO_MAX_PITCH   120
+#define SERVO_MIN_ROLL   -120
+#define SERVO_MAX_ROLL    120
+
+#define SERVO_MIN_ANGLE    0
+#define SERVO_MAX_ANGLE  180
 
 /* Assign a unique ID to the sensors */
 Adafruit_10DOF                dof   = Adafruit_10DOF();
@@ -43,54 +51,8 @@ Servo servoPitch1;
 Servo servoRoll0;
 Servo servoRoll1;   
 
-void initSensors()
-{
-  /* Enable gyro auto-ranging */
-  gyro.enableAutoRange(true);
-    
-  if(!gyro.begin()) {
-    /* There was a problem detecting the L3GD20 ... check your connections */
-    Serial.println("Ooops, no L3GD20 detected ... Check your wiring!");
-    while(1);
-  }
-
-  if(!accel.begin()) {
-    /* There was a problem detecting the LSM303 ... check your connections */
-    Serial.println(F("Ooops, no LSM303 detected ... Check your wiring!"));
-    while(1);
-  }
-
-  if(!mag.begin()) {
-    /* There was a problem detecting the LSM303 ... check your connections */
-    Serial.println("Ooops, no LSM303 detected ... Check your wiring!");
-    while(1);
-  }
-
-  if(!bmp.begin()) {
-    /* There was a problem detecting the BMP180 ... check your connections */
-    Serial.println("Ooops, no BMP180 detected ... Check your wiring!");
-    while(1);
-  }
-}
-
-void initServos() {
-  servoPitch0.attach(SERVO_PITCH0_PIN);
-  servoPitch0.write(0);
-  servoPitch1.attach(SERVO_PITCH1_PIN);
-  servoPitch1.write(0);
-  servoRoll0.attach(SERVO_ROLL0_PIN);
-  servoRoll0.write(0);
-  servoRoll1.attach(SERVO_ROLL1_PIN);
-  servoRoll1.write(0);
-}
-
 void debugDump() {
   
-    Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
-    Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
-    Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
-    Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
-    
     /* Display the results (speed is measured in rad/s) */
     Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
     Serial.print("Y: "); Serial.print(gyro_event.gyro.y); Serial.print("  ");
@@ -117,6 +79,32 @@ void debugDump() {
     Serial.print(temperature);
     Serial.print(F(" C"));
     Serial.println(F(""));
+
+    Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
+    Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
+    Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
+    Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
+    
+}
+
+void initSensors()
+{
+  gyro.enableAutoRange(true);    
+  gyro.begin();
+  accel.begin();
+  mag.begin();
+  bmp.begin();
+}
+
+void initServos() {
+  servoPitch0.attach(SERVO_PITCH0_PIN);
+  servoPitch0.write(90);
+  servoPitch1.attach(SERVO_PITCH1_PIN);
+  servoPitch1.write(90);
+  servoRoll0.attach(SERVO_ROLL0_PIN);
+  servoRoll0.write(90);
+  servoRoll1.attach(SERVO_ROLL1_PIN);
+  servoRoll1.write(90);
 }
 
 void setup(void)
@@ -142,10 +130,10 @@ void loop(void)
   bmp.getTemperature(&temperature);
 
   // Adjust the servos...
-  servoPitch0.write(map(orientation.pitch, -45,45,0,179));
-  servoPitch1.write(map(orientation.pitch, 45,-45,0,179));
-  servoRoll1.write(map(orientation.roll, -45,45,0,179));
-  servoRoll0.write(map(orientation.roll, 45,-45,0,179));
+  servoPitch0.write(map(orientation.pitch, SERVO_MIN_PITCH,SERVO_MAX_PITCH,0,179));
+  servoPitch1.write(map(orientation.pitch, SERVO_MAX_PITCH,SERVO_MIN_PITCH,0,179));
+  servoRoll1.write(map(orientation.roll, SERVO_MIN_ROLL,SERVO_MAX_ROLL,0,179));
+  servoRoll0.write(map(orientation.roll, SERVO_MAX_ROLL,SERVO_MIN_ROLL,0,179));
 
   if ( millis() % 1000 < 100 ) {
     debugDump();
