@@ -13,13 +13,12 @@
 #include <Adafruit_L3GD20_U.h>
 #include <Adafruit_LSM303_U.h>
 #include <Adafruit_BMP085_U.h>
-#include <Adafruit_L3GD20_U.h>
 #include <Adafruit_10DOF.h>
-#include <Adafruit_SoftServo.h>
+#include <Servo.h>
 
-#define SERVO_PITCH0_PIN  9
-#define SERVO_PITCH1_PIN 10
-#define SERVO_ROLL0_PIN  11
+#define SERVO_PITCH0_PIN  3
+#define SERVO_PITCH1_PIN  4
+#define SERVO_ROLL0_PIN   5
 #define SERVO_ROLL1_PIN   6
 
 /* Assign a unique ID to the sensors */
@@ -31,6 +30,7 @@ Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
 
 /* Update this with the correct SLP for accurate altitude measurements */
 float seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
+float temperature;
 
 sensors_event_t gyro_event;
 sensors_event_t accel_event;
@@ -38,24 +38,10 @@ sensors_event_t mag_event;
 sensors_event_t bmp_event;
 sensors_vec_t   orientation;
     
-Adafruit_SoftServo servoPitch0;
-Adafruit_SoftServo servoPitch1;
-Adafruit_SoftServo servoRoll0;
-Adafruit_SoftServo servoRoll1;
-   
-volatile uint8_t counter = 0;
-SIGNAL(TIMER0_COMPA_vect) {
-
-  counter += 2;
-
-  if (counter >= 20) {
-    counter = 0;
-    servoPitch0.refresh();
-    servoPitch0.refresh();
-    servoRoll0.refresh();
-    servoRoll1.refresh();
-  }
-}
+Servo servoPitch0;
+Servo servoPitch1;
+Servo servoRoll0;
+Servo servoRoll1;   
 
 void initSensors()
 {
@@ -88,26 +74,22 @@ void initSensors()
 }
 
 void initServos() {
-  // Set up the interrupt that will refresh the servo for us automagically
-  OCR0A = 0xAF;
-  TIMSK0 |= _BV(OCIE0A);
-  
   servoPitch0.attach(SERVO_PITCH0_PIN);
-  servoPitch0.write(90);
+  servoPitch0.write(0);
   servoPitch1.attach(SERVO_PITCH1_PIN);
-  servoPitch1.write(90);
+  servoPitch1.write(0);
   servoRoll0.attach(SERVO_ROLL0_PIN);
-  servoRoll0.write(90);
+  servoRoll0.write(0);
   servoRoll1.attach(SERVO_ROLL1_PIN);
-  servoRoll1.write(90);
+  servoRoll1.write(0);
 }
 
 void debugDump() {
   
-    Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.getAngle());
-    Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.getAngle());
-    Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.getAngle());
-    Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.getAngle());
+    Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
+    Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
+    Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
+    Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
     
     /* Display the results (speed is measured in rad/s) */
     Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
@@ -135,7 +117,6 @@ void debugDump() {
     Serial.print(temperature);
     Serial.print(F(" C"));
     Serial.println(F(""));
-  }
 }
 
 void setup(void)
@@ -158,7 +139,6 @@ void loop(void)
   // Calculate some interesting things...
   dof.accelGetOrientation(&accel_event, &orientation);
   dof.magGetOrientation(SENSOR_AXIS_Z, &mag_event, &orientation);
-  float temperature;
   bmp.getTemperature(&temperature);
 
   // Adjust the servos...
@@ -169,5 +149,6 @@ void loop(void)
 
   if ( millis() % 1000 < 100 ) {
     debugDump();
+  }
 }
 
