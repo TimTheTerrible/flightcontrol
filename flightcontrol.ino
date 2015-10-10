@@ -76,8 +76,7 @@ void debugDump() {
 
     Serial.print(F("Alt: "));
     Serial.print(bmp.pressureToAltitude(seaLevelPressure,
-                                        bmp_event.pressure,
-                                        temperature)); 
+      bmp_event.pressure, temperature)); 
     Serial.print(F(" m; "));
     /* Display the temperature */
     Serial.print(F("Temp: "));
@@ -89,7 +88,6 @@ void debugDump() {
     Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
     Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
     Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
-    
 }
 
 void initSensors()
@@ -115,9 +113,7 @@ void initServos() {
 void setup(void)
 {
   Serial.begin(9600);
-  
   initSensors();
-
   initServos();
 }
 
