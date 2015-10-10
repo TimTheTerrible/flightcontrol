@@ -58,36 +58,36 @@ int servoRoll1Trim  = 2;
 
 void debugDump() {
   
-    /* Display the results (speed is measured in rad/s) */
-    Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
-    Serial.print("Y: "); Serial.print(gyro_event.gyro.y); Serial.print("  ");
-    Serial.print("Z: "); Serial.print(gyro_event.gyro.z); Serial.print("  ");
-    Serial.println("rad/s ");
-    
-    Serial.print(F("Roll: "));
-    Serial.print(orientation.roll);
-    Serial.print(F("; "));
-    Serial.print(F("Pitch: "));
-    Serial.print(orientation.pitch);
-    Serial.print(F("; "));
-    Serial.print(F("Heading: "));
-    Serial.print(orientation.heading);
-    Serial.print(F("; "));
+  /* Display the results (speed is measured in rad/s) */
+  Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(gyro_event.gyro.y); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(gyro_event.gyro.z); Serial.print("  ");
+  Serial.println("rad/s ");
+  
+  Serial.print(F("Roll: "));
+  Serial.print(orientation.roll);
+  Serial.print(F("; "));
+  Serial.print(F("Pitch: "));
+  Serial.print(orientation.pitch);
+  Serial.print(F("; "));
+  Serial.print(F("Heading: "));
+  Serial.print(orientation.heading);
+  Serial.print(F("; "));
 
-    Serial.print(F("Alt: "));
-    Serial.print(bmp.pressureToAltitude(seaLevelPressure,
-      bmp_event.pressure, temperature)); 
-    Serial.print(F(" m; "));
-    /* Display the temperature */
-    Serial.print(F("Temp: "));
-    Serial.print(temperature);
-    Serial.print(F(" C"));
-    Serial.println(F(""));
+  Serial.print(F("Alt: "));
+  Serial.print(bmp.pressureToAltitude(seaLevelPressure, bmp_event.pressure, temperature));
+  Serial.print(F(" m; "));
+  
+  /* Display the temperature */
+  Serial.print(F("Temp: "));
+  Serial.print(temperature);
+  Serial.print(F(" C"));
+  Serial.println(F(""));
 
-    Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
-    Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
-    Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
-    Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
+  Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
+  Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
+  Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
+  Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
 }
 
 void initSensors()
