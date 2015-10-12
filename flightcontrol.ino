@@ -15,6 +15,7 @@
 #include <Adafruit_BMP085_U.h>
 #include <Adafruit_10DOF.h>
 #include <Servo.h>
+#include "debugprint.h"
 
 #define SERVO_PITCH0_PIN      3
 #define SERVO_PITCH1_PIN      4
@@ -56,42 +57,41 @@ int servoPitch1Trim = 2;
 int servoRoll0Trim  = 2;
 int servoRoll1Trim  = 2;
 
+IntervalTimer debugTimer;
+boolean doDebugDump = false;
+long sampleCount = 0;
+const int debugLEDPin = 11;
+
+float servoGainPitch = 3;
+float servoGainRoll = 3;
+
 void debugDump() {
+  digitalWrite(debugLEDPin, HIGH);
   
-  /* Display the results (speed is measured in rad/s) */
-  Serial.print("X: "); Serial.print(gyro_event.gyro.x); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(gyro_event.gyro.y); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(gyro_event.gyro.z); Serial.print("  ");
-  Serial.println("rad/s ");
+  long m = millis();
+  debugprint(DEBUG_INFO, "\n*** Status at %3.3d:%3.3d", m / 1000, m % 1000);
   
-  Serial.print(F("Roll: "));
-  Serial.print(orientation.roll);
-  Serial.print(F("; "));
-  Serial.print(F("Pitch: "));
-  Serial.print(orientation.pitch);
-  Serial.print(F("; "));
-  Serial.print(F("Heading: "));
-  Serial.print(orientation.heading);
-  Serial.print(F("; "));
+  debugprint(DEBUG_INFO, "Gyro:\nX: %6.2f  Y: %6.2f  Z: %6.2f  rad/s",
+    gyro_event.gyro.x, gyro_event.gyro.y, gyro_event.gyro.z);
+  
+  debugprint(DEBUG_INFO, "Accelerometer:\nRoll: %6.2f; Pitch: %6.2f; Heading: %6.2f",
+    orientation.roll, orientation.pitch, orientation.heading);
 
-  Serial.print(F("Alt: "));
-  Serial.print(bmp.pressureToAltitude(seaLevelPressure, bmp_event.pressure, temperature));
-  Serial.print(F(" m; "));
+  debugprint(DEBUG_INFO, "Barometer:\nAlt: %7.3f m; Temp: %4.1f C",
+    bmp.pressureToAltitude(seaLevelPressure, bmp_event.pressure, temperature), temperature);
   
-  /* Display the temperature */
-  Serial.print(F("Temp: "));
-  Serial.print(temperature);
-  Serial.print(F(" C"));
-  Serial.println(F(""));
-
-  Serial.print("servoPitch0.angle = "); Serial.println(servoPitch0.read());
-  Serial.print("servoPitch1.angle = "); Serial.println(servoPitch1.read());
-  Serial.print("servoRoll0.angle = "); Serial.println(servoRoll0.read());
-  Serial.print("servoRoll1.angle = "); Serial.println(servoRoll1.read());
+  debugprint(DEBUG_INFO, "Servos:\nP0: %d  P1: %d  R0: %d  R1: %d",
+    servoPitch0.read(), servoPitch1.read(), servoRoll0.read(), servoRoll1.read());
+  
+  debugprint(DEBUG_INFO, "Based on %d samples", sampleCount);
+  
+  sampleCount = 0;
+  doDebugDump = false;
+  digitalWrite(debugLEDPin, LOW);
 }
 
 void initSensors()
-{
+{  
   gyro.enableAutoRange(true);    
   gyro.begin();
   accel.begin();
@@ -99,7 +99,7 @@ void initSensors()
   bmp.begin();
 }
 
-void initServos() {
+void initServos() {  
   servoPitch0.attach(SERVO_PITCH0_PIN);
   servoPitch0.write(90);
   servoPitch1.attach(SERVO_PITCH1_PIN);
@@ -110,34 +110,67 @@ void initServos() {
   servoRoll1.write(90);
 }
 
+void blinkLED(int count) {
+  while ( count-- > 0 ) {
+    digitalWrite(debugLEDPin, HIGH);
+    delay(100);
+    digitalWrite(debugLEDPin, LOW);
+    delay(100);
+  }
+}
+
 void setup(void)
 {
   Serial.begin(9600);
+  debugprint(DEBUG_INFO, "Starting up!");
+  pinMode(debugLEDPin, OUTPUT);
+  digitalWrite(debugLEDPin, LOW);
+  
   initSensors();
+  
   initServos();
+
+  debugTimer.begin(callDebug, 1000000);
+
+  blinkLED(3);
 }
 
-void loop(void)
-{
-  // Read all the sensors...
+void callDebug() {
+  doDebugDump = true;
+}
+
+void readSensors() {
   gyro.getEvent(&gyro_event);
   accel.getEvent(&accel_event);
   mag.getEvent(&mag_event);
   bmp.getEvent(&bmp_event);
   
-  // Calculate some interesting things...
+  // Calculate pitch and roll...
   dof.accelGetOrientation(&accel_event, &orientation);
+
+  // Calculate heading...
   dof.magGetOrientation(SENSOR_AXIS_Z, &mag_event, &orientation);
+
+  // Get the temperature...
   bmp.getTemperature(&temperature);
 
-  // Adjust the servos...
-  servoPitch0.write(map(orientation.pitch, SERVO_MIN_PITCH,SERVO_MAX_PITCH,1,180) + servoPitch0Trim);
-  servoPitch1.write(map(orientation.pitch, SERVO_MAX_PITCH,SERVO_MIN_PITCH,1,180) + servoPitch1Trim);
-  servoRoll0.write(map(orientation.roll, SERVO_MIN_ROLL,SERVO_MAX_ROLL,1,180) + servoRoll0Trim);
-  servoRoll1.write(map(orientation.roll, SERVO_MAX_ROLL,SERVO_MIN_ROLL,1,180) + servoRoll1Trim);
+  sampleCount += 1;
+}
 
-  // dump stats once a second
-  if ( millis() % 1000 < 100 ) {
+void adjustServos() {
+  servoPitch0.write(map(orientation.pitch * servoGainPitch, SERVO_MIN_PITCH,SERVO_MAX_PITCH,1,180) + servoPitch0Trim);
+  servoPitch1.write(map(orientation.pitch * servoGainPitch, SERVO_MAX_PITCH,SERVO_MIN_PITCH,1,180) + servoPitch1Trim);
+  servoRoll0.write(map(orientation.roll * servoGainRoll, SERVO_MIN_ROLL,SERVO_MAX_ROLL,1,180) + servoRoll0Trim);
+  servoRoll1.write(map(orientation.roll * servoGainRoll, SERVO_MAX_ROLL,SERVO_MIN_ROLL,1,180) + servoRoll1Trim);
+}
+  
+void loop(void)
+{
+  readSensors();
+
+  adjustServos();
+  
+  if ( doDebugDump ) {
     debugDump();
   }
 }
