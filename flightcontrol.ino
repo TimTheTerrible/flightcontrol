@@ -14,6 +14,7 @@
 #include <Adafruit_LSM303_U.h>
 #include <Adafruit_BMP085_U.h>
 #include <Adafruit_10DOF.h>
+#include <Adafruit_TMP006.h>
 #include <Servo.h>
 #include "debugprint.h"
 
@@ -31,11 +32,12 @@
 #define SERVO_MAX_ANGLE     180
 
 /* Assign a unique ID to the sensors */
-Adafruit_10DOF                dof   = Adafruit_10DOF();
-Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(30301);
-Adafruit_LSM303_Mag_Unified   mag   = Adafruit_LSM303_Mag_Unified(30302);
-Adafruit_BMP085_Unified       bmp   = Adafruit_BMP085_Unified(18001);
-Adafruit_L3GD20_Unified       gyro  = Adafruit_L3GD20_Unified(20);
+Adafruit_10DOF                dof    = Adafruit_10DOF();
+Adafruit_LSM303_Accel_Unified accel  = Adafruit_LSM303_Accel_Unified(30301);
+Adafruit_LSM303_Mag_Unified   mag    = Adafruit_LSM303_Mag_Unified(30302);
+Adafruit_BMP085_Unified       bmp    = Adafruit_BMP085_Unified(18001);
+Adafruit_L3GD20_Unified       gyro   = Adafruit_L3GD20_Unified(20);
+Adafruit_TMP006               irtemp = Adafruit_TMP006();
 
 /* Update this with the correct SLP for accurate altitude measurements */
 float seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA; // 1014.1; //
@@ -46,6 +48,9 @@ sensors_event_t accel_event;
 sensors_event_t mag_event;
 sensors_event_t bmp_event;
 sensors_vec_t   orientation;
+double IRTempObject;
+double IRTempDie;
+long nextRead;
     
 Servo servoPitch0;
 Servo servoPitch1;
@@ -60,7 +65,7 @@ int servoRoll1Trim  = 2;
 IntervalTimer debugTimer;
 boolean doDebugDump = false;
 long sampleCount = 0;
-const int debugLEDPin = 11;
+const int debugLEDPin = 13;
 
 float servoGainPitch = 3;
 float servoGainRoll = 3;
@@ -82,6 +87,8 @@ void debugDump() {
   
   debugprint(DEBUG_INFO, "Servos:\nP0: %d  P1: %d  R0: %d  R1: %d",
     servoPitch0.read(), servoPitch1.read(), servoRoll0.read(), servoRoll1.read());
+
+  debugprint(DEBUG_INFO, "IR Temp:\nObject: %6.2fC  Die: %6.2f ", IRTempObject, IRTempDie);
   
   debugprint(DEBUG_INFO, "Based on %d samples", sampleCount);
   
@@ -97,6 +104,7 @@ void initSensors()
   accel.begin();
   mag.begin();
   bmp.begin();
+  irtemp.begin();
 }
 
 void initServos() {  
@@ -121,17 +129,22 @@ void blinkLED(int count) {
 
 void setup(void)
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  delay(500);
   debugprint(DEBUG_INFO, "Starting up!");
   pinMode(debugLEDPin, OUTPUT);
   digitalWrite(debugLEDPin, LOW);
-  
+
+  blinkLED(3);
+
   initSensors();
   
   initServos();
 
   debugTimer.begin(callDebug, 1000000);
-
+  
+  nextRead = millis() + 4000;
+  
   blinkLED(3);
 }
 
@@ -151,8 +164,17 @@ void readSensors() {
   // Calculate heading...
   dof.magGetOrientation(SENSOR_AXIS_Z, &mag_event, &orientation);
 
-  // Get the temperature...
+  // Get the ambient temperature...
   bmp.getTemperature(&temperature);
+
+  // Read the IR engine temp sensor
+  if ( millis() > nextRead ) {  // the sensor can only be read once every four seconds...
+    IRTempObject = irtemp.readObjTempC();
+    IRTempDie = irtemp.readDieTempC();
+    Serial.println(IRTempObject);
+    Serial.println(IRTempDie);
+    nextRead = millis() + 4000;
+  }
 
   sampleCount += 1;
 }
